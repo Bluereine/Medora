@@ -1,1 +1,62 @@
 @import "tailwindcss";
+
+@theme {
+  --color-medora-deep: #286E78;
+  --color-medora-aqua: #319995;
+  --color-medora-seafoam: #C4DDD8;
+  --color-medora-mist: #D3E1E7;
+  --color-medora-light: #F5F9F8;
+  --color-medora-dark: #18383D;
+}
+
+/* Accessibility Font Scaling */
+html[data-font-size="normal"] {
+  font-size: 16px;
+}
+html[data-font-size="large"] {
+  font-size: 18px;
+}
+html[data-font-size="extra-large"] {
+  font-size: 20px;
+}
+
+body {
+  background-color: var(--color-medora-light);
+  color: var(--color-medora-dark);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* High Contrast Accessibility Enhancements */
+html.high-contrast body {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+html.high-contrast h1,
+html.high-contrast h2,
+html.high-contrast h3,
+html.high-contrast h4,
+html.high-contrast p,
+html.high-contrast span,
+html.high-contrast label {
+  color: #000000 !important;
+}
+
+html.high-contrast .bg-white,
+html.high-contrast .bg-medora-light {
+  background-color: #FFFFFF !important;
+  border-color: #000000 !important;
+}
+
+html.high-contrast button {
+  border-color: #000000 !important;
+}
+
+html.high-contrast .border,
+html.high-contrast .border-2,
+html.high-contrast .border-b,
+html.high-contrast .border-t {
+  border-color: #000000 !important;
+}

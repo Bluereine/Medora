@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------
+    // Helper Functions
+    // -------------------------------------------------------------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidRole(role) {
+      return role in ['elderly', 'family', 'caretaker'];
+    }
+
+    // Validates that the document has EXACTLY the 5 expected fields and valid types
+    function isValidProfileCreate(data, userId) {
+      return data.keys().hasAll(['uid', 'fullName', 'email', 'role', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'fullName', 'email', 'role', 'createdAt'])
+        && data.uid == userId
+        && data.fullName is string
+        && data.fullName.size() >= 2
+        && data.fullName.size() <= 100
+        && data.email is string
+        && isValidRole(data.role)
+        && data.createdAt is timestamp;
+    }
+
+    // Validates that on updates only permitted fields change, while immutable fields are preserved
+    function isValidProfileUpdate() {
+      return request.resource.data.keys().hasOnly(['uid', 'fullName', 'email', 'role', 'createdAt'])
+        // 1. Immutable fields cannot be modified
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.createdAt == resource.data.createdAt
+        // 2. Only permitted fields (fullName and email) are allowed in the diff
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName', 'email'])
+        // 3. Field type and constraint validation for any modified fields
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['fullName'])
+            || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 2 && request.resource.data.fullName.size() <= 100))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+            || (request.resource.data.email is string && request.resource.data.email.size() > 0));
+    }
+
+    // -------------------------------------------------------------
+    // User Profile Collection (/users/{userId})
+    // -------------------------------------------------------------
+    match /users/{userId} {
+      // 1. Read: Users can only read their own profile document
+      allow read: if isOwner(userId);
+
+      // 2. Create: Only the authenticated owner can create their profile with exact fields
+      allow create: if isOwner(userId)
+                    && isValidProfileCreate(request.resource.data, userId);
+
+      // 3. Update: Only fullName and email can change; uid, role, and createdAt are locked
+      allow update: if isOwner(userId)
+                    && isValidProfileUpdate();
+
+      // 4. Delete: Only the owner can delete their own profile
+      allow delete: if isOwner(userId);
+    }
+
+    // -------------------------------------------------------------
+    // Medications Collection (/medications/{medicationId})
+    // -------------------------------------------------------------
+    match /medications/{medicationId} {
+      // 1. Read: Authenticated users can only read medication records they own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // 2. Create: Authenticated users can only create medications assigned to their own UID
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0;
+
+      // 3. Update: Users can only update their own medications, and ownership cannot be transferred
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == resource.data.userId;
+
+      // 4. Delete: Users can only delete their own medications
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // -------------------------------------------------------------
+    // Default Deny: All unspecified collections are denied by default
+    // -------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
